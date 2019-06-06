@@ -2,10 +2,6 @@ project(KDEConnectCore)
 
 add_definitions(-DTRANSLATION_DOMAIN=\"kdeconnect-core\")
 
-include_directories(
-    ${CMAKE_CURRENT_BINARY_DIR}
-)
-
 add_subdirectory(backends/lan)
 add_subdirectory(backends/loopback)
 
@@ -33,9 +29,11 @@ set(kdeconnectcore_SRCS
     dbushelper.cpp
     networkpacket.cpp
     filetransferjob.cpp
+    compositefiletransferjob.cpp
     daemon.cpp
     device.cpp
     core_debug.cpp
+    notificationserverinfo.cpp
 )
 
 add_library(kdeconnectcore ${kdeconnectcore_SRCS})

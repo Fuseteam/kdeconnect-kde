@@ -21,11 +21,16 @@
 
 #include "conversationlistmodel.h"
 
+#include <QString>
 #include <QLoggingCategory>
 #include "interfaces/conversationmessage.h"
 #include "interfaces/dbusinterfaces.h"
+#include "smshelper.h"
 
 Q_LOGGING_CATEGORY(KDECONNECT_SMS_CONVERSATIONS_LIST_MODEL, "kdeconnect.sms.conversations_list")
+
+OurSortFilterProxyModel::OurSortFilterProxyModel(){}
+OurSortFilterProxyModel::~OurSortFilterProxyModel(){}
 
 ConversationListModel::ConversationListModel(QObject* parent)
     : QStandardItemModel(parent)
@@ -66,15 +71,15 @@ void ConversationListModel::setDeviceId(const QString& deviceId)
         m_conversationsInterface = nullptr;
     }
 
-    m_deviceId = deviceId;
-    Q_EMIT deviceIdChanged();
-
     // This method still gets called *with a valid deviceID* when the device is not connected while the component is setting up
     // Detect that case and don't do anything.
     DeviceDbusInterface device(deviceId);
     if (!(device.isValid() && device.isReachable())) {
         return;
     }
+
+    m_deviceId = deviceId;
+    Q_EMIT deviceIdChanged();
 
     m_conversationsInterface = new DeviceConversationsDbusInterface(deviceId, this);
     connect(m_conversationsInterface, SIGNAL(conversationCreated(QVariantMap)), this, SLOT(handleCreatedConversation(QVariantMap)));
@@ -173,43 +178,34 @@ void ConversationListModel::createRowFromMessage(const QVariantMap& msg)
 
 KPeople::PersonData* ConversationListModel::lookupPersonByAddress(const QString& address)
 {
-    const QString& canonicalAddress = canonicalizePhoneNumber(address);
+    const QString& canonicalAddress = SmsHelper::canonicalizePhoneNumber(address);
     int rowIndex = 0;
     for (rowIndex = 0; rowIndex < m_people.rowCount(); rowIndex++) {
         const QString& uri = m_people.get(rowIndex, KPeople::PersonsModel::PersonUriRole).toString();
         KPeople::PersonData* person = new KPeople::PersonData(uri);
 
-        const QString& email = person->email();
-        const QString& phoneNumber = canonicalizePhoneNumber(person->contactCustomProperty("phoneNumber").toString());
+        const QStringList& allEmails = person->allEmails();
+        for (const QString& email : allEmails) {
+            // Although we are nominally an SMS messaging app, it is possible to send messages to phone numbers using email -> sms bridges
+            if (address == email) {
+                return person;
+            }
+        }
 
-        // To decide if a phone number matches:
-        // 1. Are they similar lengths? If two numbers are very different, probably one is junk data and should be ignored
-        // 2. Is one a superset of the other? Phone number digits get more specific the further towards the end of the string,
-        //    so if one phone number ends with the other, it is probably just a more-complete version of the same thing
-        const QString& longerNumber = canonicalAddress.length() >= phoneNumber.length() ? canonicalAddress : phoneNumber;
-        const QString& shorterNumber = canonicalAddress.length() < phoneNumber.length() ? canonicalAddress : phoneNumber;
+        // TODO: Either upgrade KPeople with an allPhoneNumbers method
+        const QVariantList allPhoneNumbers = person->contactCustomProperty(QStringLiteral("all-phoneNumber")).toList();
+        for (const QVariant& rawPhoneNumber : allPhoneNumbers) {
+            const QString& phoneNumber = SmsHelper::canonicalizePhoneNumber(rawPhoneNumber.toString());
+            bool matchingPhoneNumber = SmsHelper::isPhoneNumberMatchCanonicalized(canonicalAddress, phoneNumber);
 
-        bool matchingPhoneNumber = longerNumber.endsWith(shorterNumber) && shorterNumber.length() * 2 >= longerNumber.length();
-
-        if (address == email || matchingPhoneNumber) {
-            //qCDebug(KDECONNECT_SMS_CONVERSATIONS_LIST_MODEL) << "Matched" << address << "to" << person->name();
-            return person;
+            if (matchingPhoneNumber) {
+                //qCDebug(KDECONNECT_SMS_CONVERSATIONS_LIST_MODEL) << "Matched" << address << "to" << person->name();
+                return person;
+            }
         }
 
         delete person;
     }
 
     return nullptr;
-}
-
-QString ConversationListModel::canonicalizePhoneNumber(const QString& phoneNumber)
-{
-    QString toReturn(phoneNumber);
-    toReturn = toReturn.remove(' ');
-    toReturn = toReturn.remove('-');
-    toReturn = toReturn.remove('(');
-    toReturn = toReturn.remove(')');
-    toReturn = toReturn.remove('+');
-    toReturn = toReturn.remove(QRegularExpression("^0*")); // Strip leading zeroes
-    return toReturn;
 }

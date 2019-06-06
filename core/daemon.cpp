@@ -29,6 +29,7 @@
 #include "core_debug.h"
 #include "kdeconnectconfig.h"
 #include "networkpacket.h"
+#include "notificationserverinfo.h"
 
 #ifdef KDECONNECT_BLUETOOTH
     #include "backends/bluetooth/bluetoothlinkprovider.h"
@@ -110,6 +111,8 @@ void Daemon::init()
     QDBusConnection::sessionBus().registerService(QStringLiteral("org.kde.kdeconnect"));
     QDBusConnection::sessionBus().registerObject(QStringLiteral("/modules/kdeconnect"), this, QDBusConnection::ExportScriptableContents);
 
+    NotificationServerInfo::instance().init();
+
     qCDebug(KDECONNECT_CORE) << "Daemon started";
 }
 
@@ -174,6 +177,11 @@ Device*Daemon::getDevice(const QString& deviceId)
         }
     }
     return nullptr;
+}
+
+const QSet<LinkProvider*>& Daemon::getLinkProviders() const
+{
+    return d->m_linkProviders;
 }
 
 QStringList Daemon::devices(bool onlyReachable, bool onlyTrusted) const

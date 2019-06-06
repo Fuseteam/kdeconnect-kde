@@ -5,6 +5,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}
     ${CMAKE_BINARY_DIR}/plugins/sendnotifications/
+    ${CMAKE_BINARY_DIR}/smsapp/
 )
 
 set(kdeconnect_libraries
@@ -17,6 +18,11 @@ set(kdeconnect_libraries
     qca-qt5
 )
 
+set(kdeconnect_sms_libraries
+    kdeconnectsmshelper
+    Qt5::Test
+)
+
 ecm_add_test(pluginloadtest.cpp LINK_LIBRARIES ${kdeconnect_libraries})
 ecm_add_test(sendfiletest.cpp LINK_LIBRARIES ${kdeconnect_libraries})
 ecm_add_test(networkpackettests.cpp LINK_LIBRARIES ${kdeconnect_libraries})
@@ -26,8 +32,12 @@ ecm_add_test(kdeconnectconfigtest.cpp TEST_NAME kdeconnectconfigtest LINK_LIBRAR
 ecm_add_test(lanlinkprovidertest.cpp TEST_NAME lanlinkprovidertest LINK_LIBRARIES ${kdeconnect_libraries})
 ecm_add_test(devicetest.cpp TEST_NAME devicetest LINK_LIBRARIES ${kdeconnect_libraries})
 ecm_add_test(testnotificationlistener.cpp
+             testdevice.cpp
              ../plugins/sendnotifications/sendnotificationsplugin.cpp
              ../plugins/sendnotifications/notificationslistener.cpp
              ../plugins/sendnotifications/notifyingapplication.cpp
              TEST_NAME testnotificationlistener
              LINK_LIBRARIES ${kdeconnect_libraries} Qt5::DBus KF5::Notifications KF5::IconThemes)
+if(SMSAPP_ENABLED)
+    ecm_add_test(testsmshelper.cpp LINK_LIBRARIES ${kdeconnect_sms_libraries})
+endif()

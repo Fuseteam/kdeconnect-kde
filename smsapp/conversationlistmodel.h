@@ -54,6 +54,9 @@ public:
         sortNow();
     }
 
+    OurSortFilterProxyModel();
+    ~OurSortFilterProxyModel();
+
 private:
     void sortNow() {
         if (m_completed && dynamicSortFilter())
@@ -105,11 +108,6 @@ private:
      * Get the data for a particular person given their contact address
      */
     KPeople::PersonData* lookupPersonByAddress(const QString& address);
-
-    /**
-     * Simplify a phone number to a known form
-     */
-    QString canonicalizePhoneNumber(const QString& phoneNumber);
 
     QStandardItem* conversationForThreadId(qint32 threadId);
 
